@@ -1,0 +1,324 @@
+---
+title: "PA1_template"
+author: "Javier Rios Perez"
+date: "1/14/2017"
+output: html_document
+---
+This is the solution for the Reproducible research - week 2
+course.
+
+Loading the necesary libraries
+```{r, echo = TRUE}
+library(ISLR)
+library(plyr)
+library(dplyr)
+library(pander)
+library(ggplot2)
+```
+
+Loading and processing the data
+
+```{r}
+original_data <- read.csv("activity.csv", header = TRUE)
+monitoring_data <- original_data
+```
+
+Converting the data column into a date variable
+
+```{r, echo = TRUE}
+monitoring_data$date <- as.character(monitoring_data$date)
+monitoring_data$date <- as.Date(monitoring_data$date, format = "%Y-%m-%d")
+```
+
+# What is mean total number of steps taken per day?
+1. Calculate the total number of steps taken per day
+
+```{r, echo = TRUE}
+
+total_num_steps <- as.data.frame(ddply(monitoring_data,~date,summarise,
+                                       sum=sum(steps, na.rm = TRUE)))
+head(total_num_steps)
+```
+2. If you do not understand the difference between a histogram and a barplot,
+research the difference between them. Make a histogram of the total number of 
+steps taken each day
+
+```{r, echo = TRUE}
+
+png("plot1.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+hist(total_num_steps$sum, breaks = 20, col = "green", main = "Total number of steps",
+     xlab = "Total number of steps")
+
+dev.off()
+```
+
+3. Calculate and report the mean and median of the total
+#number of steps taken per day
+
+```{r, echo = TRUE}
+org_steps_per_day <- ddply(monitoring_data,~date,summarise,org_sum=sum(steps))
+mean_median_original <- ddply(monitoring_data,~date,summarise,mean=mean(steps),
+                              median=median(steps))
+
+head(mean_median_original)
+tail(mean_median_original)
+```
+# What is the average daily activity pattern?
+
+1. Make a time series plot (i.e. type = "l") of
+the 5-minute interval (x-axis) and the average number of
+steps taken, averaged across all days (y-axis)
+
+```{r, echo = TRUE}
+org_num_steps_intervals <- data.frame()
+org_num_intervals <- length(unique(monitoring_data$interval))
+
+for(i in 1:org_num_intervals)
+{
+  org_steps_interval <- filter(monitoring_data, interval == monitoring_data$interval[i])
+  org_num_steps_intervals[i,1] <- mean(org_steps_interval$steps, na.rm = TRUE)
+  org_num_steps_intervals[i,2] <- org_steps_interval$interval[1]
+}
+
+
+png("plot2.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+plot(org_num_steps_intervals[,1], type = "l", col = "red", xlab = "5-minute interval",
+     ylab = "Averaged number of steps averaged accross all days",
+     main = "5-minute interval Vs. Averaged number of steps")
+
+dev.off()
+
+```
+
+2. Which 5-minute interval, on average across
+all the days in the dataset, contains the maximum number of steps?
+
+```{r, echo = TRUE}
+org_max <- max(org_num_steps_intervals[,1])
+org_max_interval_aux <- which(org_num_steps_intervals[,1] == org_max)
+org_num_steps_intervals[org_max_interval_aux,2]
+```
+
+# Imputing missing values
+
+1. Calculate and report the total number of missing values in the dataset
+(i.e. the total number of rows with NAs)
+
+```{r, echo = TRUE}
+total_NA <- is.na(monitoring_data$steps)
+table(total_NA)
+
+png("plot3.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+barplot(table(total_NA), main = "Total number of missing (NA) step values")
+
+dev.off()
+
+```
+
+2. Devise a strategy for filling in all of the missing values in the dataset.
+The strategy does not need to be sophisticated. For example, you could use the
+mean/median for that day, or the mean for that 5-minute interval, etc.
+
+```{r, echo = TRUE}
+aux <- unique(monitoring_data$date)
+monitoring_clean <- data.frame()
+
+for(i in 1: length(aux))
+  
+{
+  day <- monitoring_data[monitoring_data$date == unique(monitoring_data$date)[i],]
+  if(any(is.na(day)))
+  {
+    temp <- mean(day$steps, na.rm = TRUE)
+    if(is.nan(temp))
+    {
+      temp <- 0
+    }
+    
+  }
+  # here i need to replace the NA <- temp for each day, remember to change and seve
+  # the results in a data frame
+  for(j in 1:dim(day)[1])
+  {
+    if(is.na(day[j,1]))
+    {
+      day[j,1] <- temp
+    }
+  }
+  monitoring_clean <- rbind(monitoring_clean,day)
+}
+
+head(monitoring_clean)
+```
+3. Create a new dataset that is equal to the original
+dataset but with the missing data filled in.
+
+```{r, echo = TRUE}
+head(monitoring_clean)
+tail(monitoring_clean)
+```
+
+4. Make a histogram of the total number of steps taken
+each day and Calculate and report the mean and median total
+number of steps taken per day. Do these values differ from the
+estimates from the first part of the assignment? What is the impact
+of imputing missing data on the estimates of the total daily number of steps?
+What is mean total number of steps taken per day
+
+```{r, echo = TRUE}
+steps_per_day <- ddply(monitoring_clean,~date,summarise,sum=sum(steps))
+
+png("plot4.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+plot(steps_per_day, main = "Total number of steps per day", col = "blue")
+
+dev.off()
+
+# plotting the histogram
+
+png("plot5.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+hist(steps_per_day$sum, breaks = 20, col = "green4", main = "Total number of steps",
+     xlab = "Total number of steps")
+
+dev.off()
+
+# plotting the histogram
+
+png("plot6.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+par(mfrow = c(2,1))
+hist(total_num_steps$sum, breaks = 20, col = "green", main = "Total number of steps - Ignoring NA values",
+     xlab = "Total number of steps")
+hist(steps_per_day$sum, breaks = 20, col = "green4", main = "Total number of steps - with replacement",
+     xlab = "Total number of steps")
+
+dev.off()
+
+# Calculate and report the mean and median of the total number of steps taken per day
+
+mean_median_with_substitution <- ddply(monitoring_clean,
+                                       ~date,summarise,mean_sub=mean(steps),median_sub=median(steps))
+
+# making a new data frame that does not contain missing values
+mean_median_combined <- cbind(mean_median_original,
+                              mean_median_with_substitution$mean_sub, mean_median_with_substitution$median_sub)
+
+# comparing the total number of steps
+
+total_number_steps_combined <- cbind(org_steps_per_day, steps_per_day[,2])
+
+non_zeros <- monitoring_clean[-which(monitoring_clean$steps == 0),]
+daily_non_zeros <- ddply(non_zeros,~date,summarise,sum=sum(steps))
+
+png("plot7.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+plot(daily_non_zeros, main = "Total number of steps per day")
+
+dev.off()
+
+```
+# Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend”
+indicating whether a given date is a weekday or weekend day.
+
+```{r, echo = TRUE}
+weekdays <- data.frame() # i am going to store the resutls of weekend/weekend analysis
+
+for(i in 1:length(monitoring_clean$date))
+  
+{
+  if(weekdays(monitoring_clean[i,2]) == "Saturday" | weekdays(monitoring_clean[i,2]) == "Sunday")
+  {
+    temp <- "weekend"
+  }
+  
+  else
+  {
+    temp <- "weekday"
+  }
+  
+  weekdays[i,1] <- temp
+  i <- i+1
+}
+
+weekly_steps_per_day <- as.data.frame(cbind(monitoring_clean, weekdays))
+colnames(weekly_steps_per_day)[4] <- "weekdays"
+weekly_steps_per_day$weekdays <- as.factor(weekly_steps_per_day$weekday)
+
+
+num_steps_intervals_weekdays <- data.frame()
+avg_steps_intervals_weekdays <- data.frame()
+
+num_steps_intervals_weekends <- data.frame()
+avg_steps_intervals_weekends <- data.frame()
+
+num_intervals_weekdays <- length(unique(weekly_steps_per_day$interval))
+
+weekdays_data <- filter(weekly_steps_per_day, weekly_steps_per_day$weekdays == "weekday")
+weekends_data <-  filter(weekly_steps_per_day, weekly_steps_per_day$weekdays == "weekend")
+
+for(i in 1:num_intervals_weekdays)
+{
+  num_steps_intervals_weekdays <- filter(weekdays_data, interval == weekdays_data$interval[i])
+  avg_steps_intervals_weekdays[i,1] <- mean(num_steps_intervals_weekdays$steps)
+  avg_steps_intervals_weekdays[i,2] <- num_steps_intervals_weekdays$interval[2]
+  avg_steps_intervals_weekdays[i,3] <- num_steps_intervals_weekdays$weekdays[4]
+}
+
+for(i in 1:num_intervals_weekdays)
+{
+  num_steps_intervals_weekends <- filter(weekends_data, interval == weekends_data$interval[i])
+  avg_steps_intervals_weekends[i,1] <- mean(num_steps_intervals_weekends$steps)
+  avg_steps_intervals_weekends[i,2] <- num_steps_intervals_weekends$interval[2]
+  avg_steps_intervals_weekends[i,3] <- num_steps_intervals_weekends$weekdays[4]
+}
+
+# changing col names for both weekdays and weekend new dataframes
+
+colnames(avg_steps_intervals_weekdays) <- c("avg", "intervals", "weekday")
+colnames(avg_steps_intervals_weekends) <- c("avg", "intervals", "weekday")
+
+# plotting the results
+
+png("plot8.png",
+    width = 480,
+    height = 480,
+    units = "px")
+
+par(mfrow = c(2,1))
+
+plot(avg_steps_intervals_weekdays$avg, type = "l", col = "red", xlab = "Intervals", ylab = "Avg. Steps",
+     main = " Weekdays average steps per interval of time")
+plot(avg_steps_intervals_weekends$avg, type = "l", col = "blue", xlab = "Intervals", ylab = "Avg. Steps",
+     main = " Weekends average steps per interval of time")
+
+dev.off()
+```
+
+
